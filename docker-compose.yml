@@ -1,0 +1,55 @@
+version: '3.5'
+
+services:
+    mysql:
+        image: mysql:5.7
+        environment:
+            MYSQL_ROOT_PASSWORD: root
+            MYSQL_DATABASE: rest_app
+        volumes:
+            - ./.docker/.mysql-data:/var/lib/mysql:rw,delegated
+        ports:
+            - 3308:3306
+        networks:
+            - internal
+
+    php:
+        build:
+            context: .
+            target: symfony_php
+        depends_on:
+            - mysql
+        environment:
+            XDEBUG_CONFIG: "remote_host=host.docker.internal remote_enable=1"
+            PHP_IDE_CONFIG: "serverName=rest"
+            APP_ENV: dev
+            APP_DEBUG: 1
+#            DATABASE_URL: mysql://root:root@mysql/rest_app
+            PHP_DATE_TIMEZONE: ${PHP_DATE_TIMEZONE:-UTC}
+        volumes:
+            - .:/srv:rw,cached
+            - ./var:/srv/var:rw
+            - ./public:/srv/public:rw,delegated
+        networks:
+            - internal
+
+    nginx:
+        build:
+            context: .
+            target: symfony_nginx
+        depends_on:
+            - php
+        volumes:
+            - ./public:/srv/public:ro
+        ports:
+            - 8000:80
+        networks:
+            - internal
+
+networks:
+    internal:
+        driver: bridge
+        ipam:
+            driver: default
+            config:
+                - subnet: 192.168.66.0/28
